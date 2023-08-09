@@ -1,7 +1,16 @@
+// QueryDSL
+buildscript {
+	ext {
+		queryDslVersion = "5.0.0"
+	}
+}
 plugins {
 	id 'java'
 	id 'org.springframework.boot' version '2.7.13'
 	id 'io.spring.dependency-management' version '1.0.15.RELEASE'
+	id 'org.sonarqube' version '3.3'
+	// QueryDSL
+	id "com.ewerk.gradle.plugins.querydsl" version "1.0.10"
 }
 
 group = 'com.example'
@@ -21,16 +30,54 @@ repositories {
 	mavenCentral()
 }
 
+sonarqube {
+	properties {
+		property("sonar.host.url", "http://172.17.0.2:9000")
+		property("sonar.login", "squ_ed227855895b3691331489fe2db6b7be3ebcfbc4")
+	}
+}
+
 dependencies {
-	implementation 'org.springframework.boot:spring-boot-starter-batch'
+	implementation 'org.springframework.boot:spring-boot-starter-validation'
 	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
 	implementation 'org.springframework.boot:spring-boot-starter-jdbc'
+	implementation 'org.springframework.boot:spring-boot-starter-web'
 	compileOnly 'org.projectlombok:lombok'
-	runtimeOnly 'com.mysql:mysql-connector-j'
 	annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor'
 	annotationProcessor 'org.projectlombok:lombok'
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+
+	// Spring Batch
+	implementation 'org.springframework.boot:spring-boot-starter-batch'
 	testImplementation 'org.springframework.batch:spring-batch-test'
+
+	// DB
+	runtimeOnly 'com.mysql:mysql-connector-j'
+	testRuntimeOnly 'com.h2database:h2'
+
+	//QueryDSL
+	implementation "com.querydsl:querydsl-jpa:${queryDslVersion}"
+	implementation "com.querydsl:querydsl-apt:${queryDslVersion}"
+}
+
+// QueryDSL
+def querydslDir = "$buildDir/generated/querydsl"
+
+querydsl {
+	jpa = true
+	querydslSourcesDir = querydslDir
+}
+
+sourceSets {
+	main.java.srcDir querydslDir
+}
+
+configurations {
+	querydsl.extendsFrom compileClasspath
+}
+
+compileQuerydsl {
+	options.annotationProcessorPath = configurations.querydsl
 }
 
 tasks.named('test') {

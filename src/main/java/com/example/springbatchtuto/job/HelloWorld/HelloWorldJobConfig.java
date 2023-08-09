@@ -22,7 +22,7 @@ import org.springframework.context.annotation.Configuration;
  * */
 @Configuration
 @RequiredArgsConstructor
-public class HelloWorldConfig {
+public class HelloWorldJobConfig {
 
     @Autowired
     private JobBuilderFactory jobBuilderFactory;
