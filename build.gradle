@@ -58,6 +58,8 @@ dependencies {
 	//QueryDSL
 	implementation "com.querydsl:querydsl-jpa:${queryDslVersion}"
 	implementation "com.querydsl:querydsl-apt:${queryDslVersion}"
+	//Annotation Processor가 엔티티에 대한 Q타입 클래스를 생성
+	annotationProcessor "com.querydsl:querydsl-apt:${dependencyManagement.importedProperties['querydsl.version']}:jpa"
 }
 
 // QueryDSL
