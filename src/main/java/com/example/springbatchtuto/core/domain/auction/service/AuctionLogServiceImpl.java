@@ -3,12 +3,14 @@ package com.example.springbatchtuto.core.domain.auction.service;
 import com.example.springbatchtuto.core.common.exception.ResourceNotFoundException;
 import com.example.springbatchtuto.core.domain.auction.model.entity.Auction;
 import com.example.springbatchtuto.core.domain.auction.model.entity.AuctionLog;
+import com.example.springbatchtuto.core.domain.auction.repository.AuctionLogCustomQueryRepository;
 import com.example.springbatchtuto.core.domain.auction.repository.AuctionLogRepository;
 import com.example.springbatchtuto.core.domain.auction.repository.AuctionRepository;
 import com.example.springbatchtuto.core.domain.landmark.repository.LandmarkRepository;
 import com.example.springbatchtuto.core.domain.member.model.entity.Member;
 import com.example.springbatchtuto.core.domain.member.repository.MemberRepository;
 import java.util.List;
+import java.util.Optional;
 import java.util.logging.Logger;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.LoggerFactory;
@@ -19,10 +21,11 @@ import org.springframework.stereotype.Service;
 public class AuctionLogServiceImpl implements AuctionLogService {
 
     private final AuctionLogRepository auctionLogRepository;
+    private final AuctionLogCustomQueryRepository auctionLogCustomQueryRepository;
     private final AuctionRepository auctionRepository;
     private final LandmarkRepository landmarkRepository;
     private final MemberRepository memberRepository;
-    private final Logger LOGGER = (Logger) LoggerFactory.getLogger(AuctionLogServiceImpl.class);
+//    private final Logger LOGGER = (Logger) LoggerFactory.getLogger(AuctionLogServiceImpl.class);
 
     @Override
     public void actionsBidding(Long memberId, Long landmarkId, int price) {
@@ -51,6 +54,12 @@ public class AuctionLogServiceImpl implements AuctionLogService {
 
         // 최고 입찰자인 경우
         Auction auction = auctionLog.getAuction();
+        Optional<AuctionLog> auctionLogMax = auctionLogCustomQueryRepository.findFirstByLandmarkId(auction.getLandmark().getId());
+        if(auctionLogMax.isPresent()) { // 최고 입찰 기록 update
+            auction.changeLastLogId(auctionLogMax.get().getId());
+        } else {
+            auction.changeLastLogId(null);
+        }
     }
 
     @Override

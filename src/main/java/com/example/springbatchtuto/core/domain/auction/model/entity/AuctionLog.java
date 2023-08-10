@@ -1,6 +1,7 @@
 package com.example.springbatchtuto.core.domain.auction.model.entity;
 
 import com.example.springbatchtuto.core.domain.member.model.entity.Member;
+import com.example.springbatchtuto.core.domain.type.BaseDateTime;
 import javax.persistence.Entity;
 import javax.persistence.EntityListeners;
 import javax.persistence.FetchType;
@@ -29,7 +30,7 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 @AllArgsConstructor
 @Getter
 @Builder
-public class AuctionLog {
+public class AuctionLog extends BaseDateTime {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
