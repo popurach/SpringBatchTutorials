@@ -11,13 +11,13 @@ import com.example.springbatchtuto.core.domain.member.model.entity.Member;
 import com.example.springbatchtuto.core.domain.member.repository.MemberRepository;
 import java.util.List;
 import java.util.Optional;
-import java.util.logging.Logger;
 import lombok.RequiredArgsConstructor;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class AuctionLogServiceImpl implements AuctionLogService {
 
     private final AuctionLogRepository auctionLogRepository;
@@ -60,6 +60,11 @@ public class AuctionLogServiceImpl implements AuctionLogService {
         } else {
             auction.changeLastLogId(null);
         }
+//        Optional.ofNullable(auctionLogCustomQueryRepository.findFirstByLandmarkId(auction.getLandmark().getId()))
+//                                    .ifPresentOrElse(
+//                                            auctionLogMax -> auction.changeLastLogId(auctionLogMax.get().getId()),
+//                                            () -> auction.changeLastLogId(null)
+//                                    );
     }
 
     @Override
