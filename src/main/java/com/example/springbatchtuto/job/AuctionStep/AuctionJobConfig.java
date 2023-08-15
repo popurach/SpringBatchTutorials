@@ -1,5 +1,7 @@
 package com.example.springbatchtuto.job.AuctionStep;
 
+import com.example.springbatchtuto.core.common.exception.ResourceNotFoundException;
+import com.example.springbatchtuto.core.domain.auction.model.entity.AuctionLog;
 import com.example.springbatchtuto.core.domain.auction.repository.AuctionLogCustomQueryRepository;
 import com.example.springbatchtuto.core.domain.auction.repository.AuctionLogRepository;
 import com.example.springbatchtuto.core.domain.auction.repository.AuctionRepository;
@@ -8,6 +10,7 @@ import com.example.springbatchtuto.core.domain.landmark.repository.LandmarkRepos
 import com.example.springbatchtuto.core.domain.member.repository.MemberRepository;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
@@ -19,12 +22,14 @@ import org.springframework.batch.core.launch.support.RunIdIncrementer;
 import org.springframework.batch.item.ItemProcessor;
 import org.springframework.batch.item.ItemReader;
 import org.springframework.batch.item.ItemWriter;
+import org.springframework.batch.item.data.RepositoryItemReader;
 import org.springframework.batch.item.data.builder.RepositoryItemReaderBuilder;
 import org.springframework.batch.item.data.builder.RepositoryItemWriterBuilder;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.domain.Sort.Direction;
 
 @Configuration
 @RequiredArgsConstructor
@@ -104,10 +109,19 @@ public class AuctionJobConfig {
         return new ItemProcessor<Landmark, Landmark>() {
             @Override
             public Landmark process(Landmark item) throws Exception {
-                if(item.getMemberId() != 0L) {
-                    memberRepository.findById(item.getMemberId()).get().gainPoint(1000);
+                if (item.getMemberId() != 0L) {
+                    memberRepository.findById(item.getMemberId())
+                                    .ifPresentOrElse(
+                                            member -> {
+                                                member.gainPoint(1000);
+                                            },
+                                            () -> {
+                                                throw new ResourceNotFoundException("회원을 찾을 수 없습니다.");
+                                            }
+                                    );
+//                    memberRepository.findById(item.getMemberId()).get().gainPoint(1000);
+                    item.changeOwner(0L);
                 }
-
                 return item;
             }
         };
@@ -121,4 +135,49 @@ public class AuctionJobConfig {
                 .methodName("save")
                 .build();
     }
+
+    /**
+     * 경매 입찰 테이블 확인 후 낙찰, 유찰 처리
+     * */
+    @JobScope
+    @Bean
+    public Step auctionLogsStep(
+            ItemReader<AuctionLog> auctionLogsReader,
+            ItemProcessor<AuctionLog, AuctionLog> auctionLogsProcessor,
+            ItemWriter<AuctionLog> auctionLogsWriter
+    ) {
+        return stepBuilderFactory.get("auctionLogsStep")
+                .<AuctionLog, AuctionLog>chunk(5)
+                .reader(auctionLogsReader)
+                .processor(auctionLogsProcessor)
+                .writer(auctionLogsWriter)
+                .build();
+    }
+
+    @StepScope
+    @Bean
+    public RepositoryItemReader<AuctionLog> auctionLogsReader() {
+        return new RepositoryItemReaderBuilder<AuctionLog>()
+                .name("auctionLogsReader")
+                .repository(auctionLogRepository)
+                .methodName("findAll")
+//                .methodName("findAllByAuction_Finished")
+                .pageSize(5)
+                .arguments(List.of())
+//                .arguments(false)
+                .sorts(Collections.singletonMap("id", Direction.ASC))
+                .build();
+    }
+
+//    @JobScope
+//    @Bean
+//    public Step finishAuctionsStep() {
+//
+//    }
+//
+//    @JobScope
+//    @Bean
+//    public Step createAuctionsStep() {
+//
+//    }
 }
