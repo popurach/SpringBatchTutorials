@@ -1,16 +1,18 @@
 package com.example.springbatchtuto.job.AuctionStep;
 
 import com.example.springbatchtuto.core.common.exception.ResourceNotFoundException;
+import com.example.springbatchtuto.core.domain.auction.model.entity.Auction;
 import com.example.springbatchtuto.core.domain.auction.model.entity.AuctionLog;
 import com.example.springbatchtuto.core.domain.auction.repository.AuctionLogCustomQueryRepository;
 import com.example.springbatchtuto.core.domain.auction.repository.AuctionLogRepository;
 import com.example.springbatchtuto.core.domain.auction.repository.AuctionRepository;
+import com.example.springbatchtuto.core.domain.auction.service.AuctionLogService;
 import com.example.springbatchtuto.core.domain.landmark.model.entity.Landmark;
 import com.example.springbatchtuto.core.domain.landmark.repository.LandmarkRepository;
 import com.example.springbatchtuto.core.domain.member.repository.MemberRepository;
+import java.time.LocalDate;
 import java.util.Collections;
 import java.util.List;
-import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
@@ -23,6 +25,7 @@ import org.springframework.batch.item.ItemProcessor;
 import org.springframework.batch.item.ItemReader;
 import org.springframework.batch.item.ItemWriter;
 import org.springframework.batch.item.data.RepositoryItemReader;
+import org.springframework.batch.item.data.RepositoryItemWriter;
 import org.springframework.batch.item.data.builder.RepositoryItemReaderBuilder;
 import org.springframework.batch.item.data.builder.RepositoryItemWriterBuilder;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -34,6 +37,9 @@ import org.springframework.data.domain.Sort.Direction;
 @Configuration
 @RequiredArgsConstructor
 public class AuctionJobConfig {
+
+    @Autowired
+    private AuctionLogService auctionLogService;
 
     @Autowired
     private AuctionRepository auctionRepository;
@@ -138,7 +144,7 @@ public class AuctionJobConfig {
 
     /**
      * 경매 입찰 테이블 확인 후 낙찰, 유찰 처리
-     * */
+     */
     @JobScope
     @Bean
     public Step auctionLogsStep(
@@ -147,11 +153,11 @@ public class AuctionJobConfig {
             ItemWriter<AuctionLog> auctionLogsWriter
     ) {
         return stepBuilderFactory.get("auctionLogsStep")
-                .<AuctionLog, AuctionLog>chunk(5)
-                .reader(auctionLogsReader)
-                .processor(auctionLogsProcessor)
-                .writer(auctionLogsWriter)
-                .build();
+                                 .<AuctionLog, AuctionLog>chunk(5)
+                                 .reader(auctionLogsReader)
+                                 .processor(auctionLogsProcessor)
+                                 .writer(auctionLogsWriter)
+                                 .build();
     }
 
     @StepScope
@@ -169,15 +175,100 @@ public class AuctionJobConfig {
                 .build();
     }
 
-//    @JobScope
-//    @Bean
-//    public Step finishAuctionsStep() {
-//
-//    }
-//
-//    @JobScope
-//    @Bean
-//    public Step createAuctionsStep() {
-//
-//    }
+    @StepScope
+    @Bean
+    public ItemProcessor<AuctionLog, AuctionLog> auctionLogsProcessor() {
+        return new ItemProcessor<AuctionLog, AuctionLog>() {
+            @Override
+            public AuctionLog process(AuctionLog item) throws Exception {
+                auctionLogService.auctionExecute(item);
+                return item;
+            }
+        };
+    }
+
+    @StepScope
+    @Bean
+    public ItemWriter<AuctionLog> auctionLogsWriter() {
+        return new RepositoryItemWriterBuilder<AuctionLog>()
+                .repository(auctionLogRepository)
+                .methodName("save")
+                .build();
+    }
+
+    @JobScope
+    @Bean
+    public Step finishAuctionsStep(
+            ItemReader<Auction> auctionsReader,
+            ItemProcessor<Auction, Auction> auctionsProcessor,
+            ItemWriter<Auction> auctionsWriter
+    ) {
+        return stepBuilderFactory.get("finishAuctionStep")
+                                 .<Auction, Auction>chunk(5)
+                                 .reader(auctionsReader)
+                                 .processor(auctionsProcessor)
+                                 .writer(auctionsWriter)
+                                 .build();
+    }
+
+    @StepScope
+    @Bean
+    public RepositoryItemReader<Auction> auctionsReader() {
+        return new RepositoryItemReaderBuilder<Auction>()
+                .name("auctionsReader")
+                .repository(auctionRepository)
+                .methodName("findAllByAuction_Finished")
+                .pageSize(5)
+                .arguments(false)
+                .sorts(Collections.singletonMap("id", Direction.ASC))
+                .build();
+    }
+
+    @StepScope
+    @Bean
+    public ItemProcessor<Auction, Auction> auctionsProcessor() {
+        return item -> {
+            item.setFinished(true);
+            return item;
+        };
+    }
+
+    @StepScope
+    @Bean
+    public RepositoryItemWriter<Auction> auctionsWriter() {
+        return new RepositoryItemWriterBuilder<Auction>()
+                .repository(auctionRepository)
+                .methodName("save")
+                .build();
+    }
+
+    @JobScope
+    @Bean
+    public Step createAuctionsStep(
+            ItemReader<Landmark> landmarkReader,
+            ItemProcessor<Landmark, Auction> auctionsCreateProcessor,
+            ItemWriter<Auction> auctionsWriter
+    ) {
+        return stepBuilderFactory.get("createAuctionsStep")
+                                 .<Landmark, Auction>chunk(5)
+                                 .reader(landmarkReader)
+                                 .processor(auctionsCreateProcessor)
+                                 .writer(auctionsWriter)
+                                 .build();
+    }
+
+    @StepScope
+    @Bean
+    public ItemProcessor<Landmark, Auction> auctionsCreateProcessor() {
+        return new ItemProcessor<Landmark, Auction>() {
+            @Override
+            public Auction process(Landmark item) throws Exception {
+                return Auction.builder()
+                              .createdDate(LocalDate.now())
+                              .landmark(item)
+                              .build();
+            }
+        };
+    }
+
 }

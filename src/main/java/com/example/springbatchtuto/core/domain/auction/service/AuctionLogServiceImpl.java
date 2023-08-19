@@ -6,6 +6,7 @@ import com.example.springbatchtuto.core.domain.auction.model.entity.AuctionLog;
 import com.example.springbatchtuto.core.domain.auction.repository.AuctionLogCustomQueryRepository;
 import com.example.springbatchtuto.core.domain.auction.repository.AuctionLogRepository;
 import com.example.springbatchtuto.core.domain.auction.repository.AuctionRepository;
+import com.example.springbatchtuto.core.domain.landmark.model.entity.Landmark;
 import com.example.springbatchtuto.core.domain.landmark.repository.LandmarkRepository;
 import com.example.springbatchtuto.core.domain.member.model.entity.Member;
 import com.example.springbatchtuto.core.domain.member.repository.MemberRepository;
@@ -48,14 +49,14 @@ public class AuctionLogServiceImpl implements AuctionLogService {
         auctionLogRepository.delete(auctionLog);
 
         // 최고 입찰자가 아닌 경우
-        if(!auctionLogId.equals(auctionLog.getAuction().getLastLogId())) {
+        if (!auctionLogId.equals(auctionLog.getAuction().getLastLogId())) {
             return;
         }
 
         // 최고 입찰자인 경우
         Auction auction = auctionLog.getAuction();
         Optional<AuctionLog> auctionLogMax = auctionLogCustomQueryRepository.findFirstByLandmarkId(auction.getLandmark().getId());
-        if(auctionLogMax.isPresent()) { // 최고 입찰 기록 update
+        if (auctionLogMax.isPresent()) { // 최고 입찰 기록 update
             auction.changeLastLogId(auctionLogMax.get().getId());
         } else {
             auction.changeLastLogId(null);
@@ -67,9 +68,28 @@ public class AuctionLogServiceImpl implements AuctionLogService {
 //                                    );
     }
 
+    /**
+     * @param auctionLog 해당 경매 기록
+     * 낙찰자 -> 해당 랜드마크 주인으로 변경
+     * 유찰자 -> 입찰 가격 환불 및 경매 기록 삭제
+     */
     @Override
     public void auctionExecute(AuctionLog auctionLog) {
+        Member member = auctionLog.getMember();
+        Auction auction = auctionLog.getAuction();
+        Landmark landmark = auction.getLandmark();
+        Long succLastLogId = auction.getLastLogId();
 
+        if(Boolean.TRUE.equals(auction.getFinished())) {
+            throw new ResourceNotFoundException("해당 리소스는 끝난 경매 기록입니다.");
+        }
+        // 낙찰자 처리, succLastLogId null 체크
+        if(succLastLogId != null && succLastLogId.equals(auctionLog.getId())) {
+            landmark.changeOwner(member.getId());
+        } else { // 유찰자 처리
+            member.gainPoint(auctionLog.getPrice());
+            auctionLogRepository.delete(auctionLog);
+        }
     }
 
     @Override
